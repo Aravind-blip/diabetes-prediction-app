@@ -1,0 +1,15 @@
+{
+  "data_columns": [
+    "age",
+    "hypertension",
+    "heart_disease",
+    "bmi",
+    "HbA1c_level",
+    "blood_glucose_level",
+    "gender_Male",
+    "smoking_history_never",
+    "smoking_history_former",
+    "smoking_history_current",
+    "smoking_history_ever"
+  ]
+}
