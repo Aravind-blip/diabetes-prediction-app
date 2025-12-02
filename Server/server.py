@@ -23,12 +23,18 @@ app.add_middleware(
 
 @app.get("/get-gender")
 def getGender():
-    return JSONResponse(content={"gender": util.get_gender()})
+    # Return a fixed list of genders instead of reading from the model
+    return JSONResponse(content={"gender": ["Male", "Female"]})
 
 
 @app.get("/get-smoking")
 def getSmokingHistory():
-    return JSONResponse(content={"smoking_history": util.get_smoking_history()})
+    # Return a fixed list of smoking history categories
+    return JSONResponse(
+        content={
+            "smoking_history": ["never", "former", "current", "ever"]
+        }
+    )
 
 
 @app.post("/get-prediction")
