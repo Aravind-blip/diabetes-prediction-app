@@ -2,34 +2,45 @@ import os
 import streamlit as st
 import requests
 
+# Backend URL from environment (Render) or local default
 FASTAPI_URL = os.environ.get("FASTAPI_URL", "http://localhost:8000")
 
 st.title("Diabetes Prediction")
 
-# Fetch dropdown options
-gender_response = requests.get(f"{FASTAPI_URL}/get-gender")
-smoking_response = requests.get(f"{FASTAPI_URL}/get-smoking")
+# --- Load dropdown options from backend ---
+try:
+    gender_response = requests.get(f"{FASTAPI_URL}/get-gender", timeout=10)
+    smoking_response = requests.get(f"{FASTAPI_URL}/get-smoking", timeout=10)
 
-if gender_response.status_code == 200 and smoking_response.status_code == 200:
-    genders = gender_response.json().get("gender", [])
-    smoking_histories = smoking_response.json().get("smoking_history", [])
+    if gender_response.status_code == 200:
+        genders = gender_response.json().get("gender", [])
+    else:
+        genders = []
 
-    if isinstance(genders, str):
-        genders = [genders]
-    if isinstance(smoking_histories, str):
-        smoking_histories = [smoking_histories]
-else:
-    st.error("Failed to load gender or smoking history options.")
-    st.stop()
+    if smoking_response.status_code == 200:
+        smoking_histories = smoking_response.json().get("smoking_history", [])
+    else:
+        smoking_histories = []
 
-# Input form
+    # Fallbacks in case backend returns empty values
+    if not genders:
+        genders = ["Male", "Female"]
+    if not smoking_histories:
+        smoking_histories = ["never", "former", "current", "ever"]
+
+except Exception as e:
+    st.error(f"Failed to load dropdown options from backend: {e}")
+    genders = ["Male", "Female"]
+    smoking_histories = ["never", "former", "current", "ever"]
+
+# --- Input form ---
 with st.form("prediction_form"):
-    age = st.number_input("Age", min_value=25.0, max_value=80.0, step=0.1)
-    hypertension = 1 if st.radio("Hypertension", ["No", "Yes"]) == "Yes" else 0
-    heart_disease = 1 if st.radio("Heart Disease", ["No", "Yes"]) == "Yes" else 0
-    bmi = st.number_input("BMI", min_value=15.0, max_value=70.0, step=0.1)
-    hba1c = st.number_input("HbA1c Level", min_value=3.5, max_value=9.0, step=0.1)
-    blood_glucose = st.number_input("Blood Glucose Level", min_value=80, max_value=240, step=1)
+    age = st.number_input("Age", min_value=25.0, max_value=80.0, step=0.1, value=25.0)
+    hypertension = 1 if st.radio("Hypertension", ["No", "Yes"], index=0) == "Yes" else 0
+    heart_disease = 1 if st.radio("Heart Disease", ["No", "Yes"], index=0) == "Yes" else 0
+    bmi = st.number_input("BMI", min_value=15.0, max_value=70.0, step=0.1, value=15.0)
+    hba1c = st.number_input("HbA1c Level", min_value=3.5, max_value=9.0, step=0.1, value=3.5)
+    blood_glucose = st.number_input("Blood Glucose Level", min_value=80, max_value=240, step=1, value=80)
     gender = st.selectbox("Gender", genders)
     smoking = st.selectbox("Smoking History", smoking_histories)
 
@@ -44,7 +55,17 @@ with st.form("prediction_form"):
             "HbA1c_level": hba1c,
             "blood_glucose_level": blood_glucose,
             "gender": gender,
-            "smoking_history": smoking
+            "smoking_history": smoking,
         }
 
-        response
+        try:
+            response = requests.post(f"{FASTAPI_URL}/get-prediction", json=payload, timeout=15)
+
+            if response.status_code == 200:
+                result = response.json().get("Prediction", 0)
+                label = "Diabetes Risk: YES" if int(result) == 1 else "Diabetes Risk: NO"
+                st.success(label)
+            else:
+                st.error(f"Prediction request failed: {response.status_code}")
+        except Exception as e:
+            st.error(f"Error calling prediction API: {e}")
