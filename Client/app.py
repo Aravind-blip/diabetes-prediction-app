@@ -59,7 +59,9 @@ with st.form("prediction_form"):
         }
 
         try:
-            response = requests.post(f"{FASTAPI_URL}/get-prediction", json=payload, timeout=15)
+            response = requests.post(
+                f"{FASTAPI_URL}/get-prediction", json=payload, timeout=15
+            )
 
             if response.status_code == 200:
                 result = response.json().get("Prediction", 0)
