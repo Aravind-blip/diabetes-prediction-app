@@ -1,4 +1,5 @@
 import os
+import time
 import streamlit as st
 import requests
 
@@ -58,16 +59,41 @@ with st.form("prediction_form"):
             "smoking_history": smoking,
         }
 
-        try:
-            response = requests.post(
-                f"{FASTAPI_URL}/get-prediction", json=payload, timeout=15
-            )
+        max_retries = 3
+        delay_seconds = 5
+        response = None
 
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = requests.post(
+                    f"{FASTAPI_URL}/get-prediction",
+                    json=payload,
+                    timeout=20,
+                )
+
+                # If backend is waking up / rate-limiting, retry
+                if response.status_code == 429 or response.status_code == 503:
+                    if attempt < max_retries:
+                        st.warning(
+                            f"Backend waking up (status {response.status_code}). "
+                            f"Retrying... ({attempt}/{max_retries})"
+                        )
+                        time.sleep(delay_seconds)
+                        continue
+                break  # Got a non-429/503 response, exit loop
+
+            except Exception as e:
+                if attempt < max_retries:
+                    st.warning(f"Error contacting backend ({e}). Retrying...")
+                    time.sleep(delay_seconds)
+                else:
+                    st.error(f"Error contacting backend: {e}")
+                    response = None
+
+        if response is not None:
             if response.status_code == 200:
                 result = response.json().get("Prediction", 0)
                 label = "Diabetes Risk: YES" if int(result) == 1 else "Diabetes Risk: NO"
                 st.success(label)
             else:
                 st.error(f"Prediction request failed: {response.status_code}")
-        except Exception as e:
-            st.error(f"Error calling prediction API: {e}")
